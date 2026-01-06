@@ -1,0 +1,4 @@
+data/
+pip_cache/
+*.pth
+*.pkl
