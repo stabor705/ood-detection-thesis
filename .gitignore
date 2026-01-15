@@ -2,3 +2,5 @@ data/
 pip_cache/
 *.pth
 *.pkl
+*.png
+__pycache__/
