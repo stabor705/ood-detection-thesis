@@ -11,11 +11,21 @@ from monai.transforms import (
     EnsureChannelFirstd,
     Spacingd,
     Orientationd,
-    ScaleIntensityRanged,
+    ScaleIntensityRangePercentilesd,
     CropForegroundd,
     ToTensord,
+    RandFlipd,
+    RandRotate90d,
+    RandAffined,
+    RandGaussianNoised,
+    RandGaussianSmoothd,
+    RandScaleIntensityd,
+    RandShiftIntensityd,
+    RandAdjustContrastd,
+    DivisiblePadd,
 )
 from monai.data import Dataset, DataLoader
+
 
 def load_atlas(path: str = "../data/ATLAS_2"):
     training_dir = Path(f"{path}/Training")
@@ -30,61 +40,104 @@ def load_atlas(path: str = "../data/ATLAS_2"):
     print(f"Validation data: {len(val_data)} files")
 
     train_id_loader = create_train_loader(train_data)
-    val_id_loader = create_train_loader(val_data)
+    val_id_loader = create_val_loader(val_data)
     test_id_loader = create_test_loader(test_data)
 
     return train_id_loader, val_id_loader, test_id_loader
 
+
 def find_train_files(path: str):
     image_files = sorted(glob.glob(str(path / "**/*_T1w.nii.gz"), recursive=True))
-    mask_files = sorted(glob.glob(str(path / "**/*_label-L_desc-T1lesion_mask.nii.gz"), recursive=True))
+    mask_files = sorted(
+        glob.glob(str(path / "**/*_label-L_desc-T1lesion_mask.nii.gz"), recursive=True)
+    )
 
     print(f"Found {len(image_files)} image files")
     print(f"Found {len(mask_files)} mask files")
 
-    data = [
-        {"image": img, "label": mask}
-        for img, mask in zip(image_files, mask_files)
-    ]
+    data = [{"image": img, "label": mask} for img, mask in zip(image_files, mask_files)]
     return data
+
 
 def find_test_files(path: str):
     image_files = sorted(glob.glob(str(path / "**/*_T1w.nii.gz"), recursive=True))
 
     print(f"Found {len(image_files)} test image files")
 
-    data = [
-        {"image": img}
-        for img in image_files
-    ]
+    data = [{"image": img} for img in image_files]
     return data
+
 
 def create_train_loader(data):
     nibabel_reader = NibabelReader()
-    transform = Compose([
-        LoadImaged(keys=["image", "label"], reader=nibabel_reader, image_only=False),
-        EnsureChannelFirstd(keys=["image", "label"]),
-        Spacingd(keys=["image", "label"], pixdim=(1.0, 1.0, 1.0), mode=("bilinear", "nearest")),
-        Orientationd(keys=["image", "label"], axcodes="RAS"),
-        ScaleIntensityRanged(keys=["image"], a_min=0, a_max=1000, b_min=0.0, b_max=1.0, clip=True),
-        CropForegroundd(keys=["image", "label"], source_key="image"),
-        ToTensord(keys=["image", "label"]),
-    ])
+    transform = Compose(
+        [
+            LoadImaged(
+                keys=["image", "label"], reader=nibabel_reader, image_only=False
+            ),
+            EnsureChannelFirstd(keys=["image", "label"]),
+            Spacingd(
+                keys=["image", "label"],
+                pixdim=(1.0, 1.0, 1.0),
+                mode=("bilinear", "nearest"),
+            ),
+            Orientationd(keys=["image", "label"], axcodes="RAS"),
+            ScaleIntensityRangePercentilesd(
+                keys=["image"], lower=1, upper=99, b_min=0.0, b_max=1.0, clip=True
+            ),
+            CropForegroundd(keys=["image", "label"], source_key="image"),
+            DivisiblePadd(keys=["image", "label"], k=16),  # Add this line
+            ToTensord(keys=["image", "label"]),
+        ]
+    )
     dataset = Dataset(data=data, transform=transform)
     dataloader = DataLoader(dataset, batch_size=1, num_workers=4, pin_memory=True)
     return dataloader
 
+
+def create_val_loader(data):
+    nibabel_reader = NibabelReader()
+    transform = Compose(
+        [
+            LoadImaged(
+                keys=["image", "label"], reader=nibabel_reader, image_only=False
+            ),
+            EnsureChannelFirstd(keys=["image", "label"]),
+            Spacingd(
+                keys=["image", "label"],
+                pixdim=(1.0, 1.0, 1.0),
+                mode=("bilinear", "nearest"),
+            ),
+            Orientationd(keys=["image", "label"], axcodes="RAS"),
+            ScaleIntensityRangePercentilesd(
+                keys=["image"], lower=1, upper=99, b_min=0.0, b_max=1.0, clip=True
+            ),
+            CropForegroundd(keys=["image", "label"], source_key="image"),
+            DivisiblePadd(keys=["image", "label"], k=16),  # Add this line
+            ToTensord(keys=["image", "label"]),
+        ]
+    )
+    dataset = Dataset(data=data, transform=transform)
+    dataloader = DataLoader(dataset, batch_size=1, num_workers=4, pin_memory=True)
+    return dataloader
+
+
 def create_test_loader(data):
     nibabel_reader = NibabelReader()
-    transform = Compose([
-        LoadImaged(keys=["image"], reader=nibabel_reader, image_only=False),
-        EnsureChannelFirstd(keys=["image"]),
-        Spacingd(keys=["image"], pixdim=(1.0, 1.0, 1.0), mode="bilinear"),
-        Orientationd(keys=["image"], axcodes="RAS"),
-        ScaleIntensityRanged(keys=["image"], a_min=0, a_max=1000, b_min=0.0, b_max=1.0, clip=True),
-        CropForegroundd(keys=["image"], source_key="image"),
-        ToTensord(keys=["image"]),
-    ])
+    transform = Compose(
+        [
+            LoadImaged(keys=["image"], reader=nibabel_reader, image_only=False),
+            EnsureChannelFirstd(keys=["image"]),
+            Spacingd(keys=["image"], pixdim=(1.0, 1.0, 1.0), mode="bilinear"),
+            Orientationd(keys=["image"], axcodes="RAS"),
+            ScaleIntensityRangePercentilesd(
+                keys=["image"], lower=1, upper=99, b_min=0.0, b_max=1.0, clip=True
+            ),
+            CropForegroundd(keys=["image"], source_key="image"),
+            DivisiblePadd(keys=["image"], k=16),  # Add this line
+            ToTensord(keys=["image"]),
+        ]
+    )
     dataset = Dataset(data=data, transform=transform)
     dataloader = DataLoader(dataset, batch_size=1, num_workers=4, pin_memory=True)
     return dataloader

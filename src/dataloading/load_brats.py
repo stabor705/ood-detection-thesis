@@ -12,9 +12,10 @@ from monai.transforms import (
     EnsureChannelFirstd,
     Spacingd,
     Orientationd,
-    ScaleIntensityRanged,
+    ScaleIntensityRangePercentilesd,
     CropForegroundd,
     ToTensord,
+    NormalizeIntensityd,
 )
 from sklearn.model_selection import train_test_split
 
@@ -39,7 +40,7 @@ def load_brats(path: str = "../data/brats"):
         # CT data typically has HU values (-1000 to 1000)
         # MR data has different intensity ranges, but we'll normalize similarly
         # For OOD detection, we want to normalize to [0, 1] range
-        ScaleIntensityRanged(keys=["image"], a_min=0, a_max=1000, b_min=0.0, b_max=1.0, clip=True),
+        ScaleIntensityRangePercentilesd(keys=["image"], lower=1, upper=99, b_min=0.0, b_max=1.0, clip=True),
         CropForegroundd(keys=["image"], source_key="image"),
         ToTensord(keys=["image"]),
     ])
