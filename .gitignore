@@ -4,3 +4,4 @@ pip_cache/
 *.pkl
 *.png
 __pycache__/
+*.nii.gz
