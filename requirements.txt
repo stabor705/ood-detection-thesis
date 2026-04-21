@@ -1,0 +1,12 @@
+kagglehub
+matplotlib
+monai
+numpy
+pandas
+pillow
+scikit-learn
+torch
+torchinfo
+torchvision
+torchxrayvision
+tqdm
