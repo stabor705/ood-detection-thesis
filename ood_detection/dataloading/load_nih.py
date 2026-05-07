@@ -35,7 +35,7 @@ def _download_and_find_csv():
         root = Path(
             kagglehub.dataset_download("nih-chest-xrays/data", output_dir=output_dir)
         )
-    except FileExistsError:
+    except Exception:
         root = Path(output_dir)
 
     candidate_csv = [
