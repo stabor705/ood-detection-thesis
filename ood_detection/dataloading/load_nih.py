@@ -4,10 +4,9 @@ import kagglehub
 import pandas as pd
 from pathlib import Path
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MultiLabelBinarizer
+from sklearn.preprocessing import LabelBinarizer
 from torchvision import transforms
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from PIL import Image
 import torch
 
@@ -74,7 +73,7 @@ def _clean_dataframe_columns(df):
 
 def _match_images_to_df(df, root):
     img_exts = {".png", ".jpg", ".jpeg"}
-    image_files = [p for p in root.rglob("*") if p.suffix.lower() in img_exts]
+    image_files = sorted([p for p in root.rglob("*") if p.suffix.lower() in img_exts])
     if not image_files:
         raise FileNotFoundError(
             "No image files found. Make sure the dataset extracted correctly."
@@ -98,16 +97,17 @@ def _prepare_labels(df):
 
     # Extract all unique diseases split by '|'
     id_df["finding_list"] = id_df["Finding Labels"].apply(lambda x: str(x).split("|"))
+    id_df = id_df[id_df["finding_list"].apply(len) == 1]
+    id_df["finding_list"] = id_df["finding_list"].apply(lambda x: x[0])
 
-    # Fit MultiLabelBinarizer to create binary arrays for each class
-    mlb = MultiLabelBinarizer()
-    targets = mlb.fit_transform(id_df["finding_list"])
+    lb = LabelBinarizer()
+    targets = lb.fit_transform(id_df["finding_list"])
 
     # Add target column as float32 arrays suitable for PyTorch BCEWithLogitsLoss
     id_df["target"] = list(targets.astype(np.float32))
 
-    NUM_CLASSES = len(mlb.classes_)
-    LABEL_NAMES = list(mlb.classes_)
+    NUM_CLASSES = len(lb.classes_)
+    LABEL_NAMES = list(lb.classes_)
 
     # OOD samples (No Finding) have 0 for all disease classes
     ood_df["target"] = [np.zeros(NUM_CLASSES, dtype=np.float32)] * len(ood_df)
